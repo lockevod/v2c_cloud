@@ -1,0 +1,14 @@
+{
+  "domain": "v2c_cloud",
+  "name": "V2C Cloud",
+  "codeowners": ["@lockevod"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/lockevod/v2c_cloud",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/lockevod/v2c_cloud/issues",
+  "loggers": ["custom_components.v2c_cloud"],
+  "requirements": ["aiohttp>=3.8.0"],
+  "version": "1.0.0"
+}
