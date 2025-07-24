@@ -1,28 +1,19 @@
-"""Support for V2C Cloud sensors."""
+"""V2C Cloud sensor platform."""
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
-    SensorDeviceClass,
     SensorEntity,
-    SensorStateClass,
+    SensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    UnitOfEnergy,
-    UnitOfPower,
-    UnitOfElectricCurrent,
-    UnitOfTime,
-    UnitOfLength,
-)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CHARGE_STATE_NAMES, DYNAMIC_POWER_MODE_NAMES, SLAVE_ERROR_NAMES
+from .const import DOMAIN, SENSOR_TYPES, CHARGE_STATES
+from .entity import V2CCloudEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,347 +23,118 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up V2C Cloud sensors based on a config entry."""
+    """Set up V2C Cloud sensors."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
-
-    sensors = [
-        V2CChargeEnergySensor(coordinator, config_entry),
-        V2CChargeKmSensor(coordinator, config_entry),
-        V2CChargePowerSensor(coordinator, config_entry),
-        V2CChargeStateSensor(coordinator, config_entry),
-        V2CNumericalStatusSensor(coordinator, config_entry),
-        V2CChargeTimeSensor(coordinator, config_entry),
-        V2CContractedPowerSensor(coordinator, config_entry),
-        V2CDynamicSensor(coordinator, config_entry),
-        V2CDynamicPowerModeSensor(coordinator, config_entry),
-        V2CFVPowerSensor(coordinator, config_entry),
-        V2CHousePowerSensor(coordinator, config_entry),
-        V2CIntensitySensor(coordinator, config_entry),
-        V2CLockedSensor(coordinator, config_entry),
-        V2CMaxIntensitySensor(coordinator, config_entry),
-        V2CMinIntensitySensor(coordinator, config_entry),
-        V2CPausedSensor(coordinator, config_entry),
-        V2CPauseDynamicSensor(coordinator, config_entry),
-        V2CSlaveErrorSensor(coordinator, config_entry),
-        V2CTimerSensor(coordinator, config_entry),
-    ]
-
-    async_add_entities(sensors)
+    
+    entities = []
+    for sensor_type, sensor_info in SENSOR_TYPES.items():
+        entities.append(V2CCloudSensor(coordinator, sensor_type, sensor_info))
+    
+    async_add_entities(entities)
 
 
-class V2CBaseSensor(CoordinatorEntity, SensorEntity):
-    """Base class for V2C sensors."""
+class V2CCloudSensor(V2CCloudEntity, SensorEntity):
+    """V2C Cloud sensor entity."""
 
-    def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
+    def __init__(self, coordinator, sensor_type: str, sensor_info: dict[str, Any]):
         """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._config_entry = config_entry
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, config_entry.data["device_id"])},
-            "name": "V2C Trydan",
-            "manufacturer": "V2C",
-            "model": "Trydan",
-        }
+        super().__init__(coordinator, sensor_type)
+        self._sensor_info = sensor_info
+        self._attr_device_class = sensor_info.get("device_class")
+        self._attr_native_unit_of_measurement = sensor_info.get("unit")
+        self._attr_state_class = sensor_info.get("state_class")
+        self._attr_icon = sensor_info.get("icon")
+        
+        # Use translation key for name
+        self._attr_translation_key = sensor_info.get("translation_key")
+        self._attr_has_entity_name = True
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
-
-
-class V2CChargeEnergySensor(V2CBaseSensor):
-    """Sensor for charge energy."""
-
-    _attr_name = "V2C Charge Energy"
-    _attr_unique_id = "v2c_trydan_sensor_chargeenergy"
-    _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
-    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-
-    @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> Any:
         """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("charge_energy")
+        if not self.coordinator.data:
+            return None
+            
+        data = self.coordinator.data
+        
+        if self._type == "charge_state":
+            state_value = data.get("charge_state", 99)
+            return CHARGE_STATES.get(state_value, "unknown")
+        elif self._type == "charge_power":
+            return data.get("charge_power", 0)
+        elif self._type == "charge_energy":
+            # Convert Wh to kWh for display
+            return round(data.get("charge_energy", 0) / 1000, 2)
+        elif self._type == "charge_current":
+            return data.get("charge_current", 0)
+        elif self._type == "voltage":
+            return data.get("voltage", 0)
+        elif self._type == "temperature":
+            return data.get("temperature", 0)
+        elif self._type == "session_energy":
+            # Convert Wh to kWh for display
+            return round(data.get("session_energy", 0) / 1000, 2)
+        elif self._type == "session_time":
+            return data.get("session_time", 0)
+        elif self._type == "total_energy":
+            # Convert Wh to kWh for display
+            return round(data.get("total_energy", 0) / 1000, 2)
+        elif self._type == "wifi_signal":
+            return data.get("wifi_signal", 0)
+        elif self._type == "firmware_version":
+            return data.get("firmware_version", "Unknown")
+        
         return None
 
-
-class V2CChargeKmSensor(V2CBaseSensor):
-    """Sensor for charge kilometers."""
-
-    _attr_name = "V2C Charge Km"
-    _attr_unique_id = "v2c_trydan_sensor_chargekm"
-    _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
-    _attr_icon = "mdi:car-electric"
-
     @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("charge_km")
-        return None
-
-
-class V2CChargePowerSensor(V2CBaseSensor):
-    """Sensor for charge power."""
-
-    _attr_name = "V2C Charge Power"
-    _attr_unique_id = "v2c_trydan_sensor_chargepower"
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("charge_power")
-        return None
-
-
-class V2CChargeStateSensor(V2CBaseSensor):
-    """Sensor for charge state."""
-
-    _attr_name = "V2C Charge State"
-    _attr_unique_id = "v2c_trydan_sensor_chargestate"
-    _attr_icon = "mdi:ev-station"
-
-    @property
-    def native_value(self) -> str | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            state_num = self.coordinator.data.get("charge_state")
-            if state_num is not None:
-                return CHARGE_STATE_NAMES.get(state_num, f"Unknown ({state_num})")
-        return None
-
-
-class V2CNumericalStatusSensor(V2CBaseSensor):
-    """Sensor for numerical status."""
-
-    _attr_name = "V2C Numerical Status"
-    _attr_unique_id = "v2c_trydan_numericalstatus"
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("charge_state")
-        return None
-
-
-class V2CChargeTimeSensor(V2CBaseSensor):
-    """Sensor for charge time."""
-
-    _attr_name = "V2C Charge Time"
-    _attr_unique_id = "v2c_trydan_sensor_chargetime"
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_native_unit_of_measurement = UnitOfTime.SECONDS
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("charge_time")
-        return None
-
-
-class V2CContractedPowerSensor(V2CBaseSensor):
-    """Sensor for contracted power."""
-
-    _attr_name = "V2C Contracted Power"
-    _attr_unique_id = "v2c_trydan_sensor_contractedpower"
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            power = self.coordinator.data.get("contracted_power")
-            return power if power != -1 else None
-        return None
-
-
-class V2CDynamicSensor(V2CBaseSensor):
-    """Sensor for dynamic state."""
-
-    _attr_name = "V2C Dynamic"
-    _attr_unique_id = "vc2_trydan_sensor_dynamic"
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("dynamic_enabled")
-        return None
-
-
-class V2CDynamicPowerModeSensor(V2CBaseSensor):
-    """Sensor for dynamic power mode."""
-
-    _attr_name = "V2C Dynamic Power Mode"
-    _attr_unique_id = "vc2_trydan_sensor_dynamicpowermode"
-
-    @property
-    def native_value(self) -> str | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            mode_num = self.coordinator.data.get("dynamic_power_mode")
-            if mode_num is not None:
-                return DYNAMIC_POWER_MODE_NAMES.get(mode_num, f"Unknown ({mode_num})")
-        return None
-
-
-class V2CFVPowerSensor(V2CBaseSensor):
-    """Sensor for photovoltaic power."""
-
-    _attr_name = "V2C FV Power"
-    _attr_unique_id = "vc2_trydan_sensor_fvpower"
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("fv_power")
-        return None
-
-
-class V2CHousePowerSensor(V2CBaseSensor):
-    """Sensor for house power consumption."""
-
-    _attr_name = "V2C House Power"
-    _attr_unique_id = "vc2_trydan_sensor_housepower"
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("house_power")
-        return None
-
-
-class V2CIntensitySensor(V2CBaseSensor):
-    """Sensor for intensity."""
-
-    _attr_name = "V2C Intensity"
-    _attr_unique_id = "v2c_trydan_sensor_intensity"
-    _attr_device_class = SensorDeviceClass.CURRENT
-    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("intensity")
-        return None
-
-
-class V2CLockedSensor(V2CBaseSensor):
-    """Sensor for locked state."""
-
-    _attr_name = "V2C Locked"
-    _attr_unique_id = "v2c_trydan_sensor_locked"
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("locked")
-        return None
-
-
-class V2CMaxIntensitySensor(V2CBaseSensor):
-    """Sensor for max intensity."""
-
-    _attr_name = "V2C Max Intensity"
-    _attr_unique_id = "v2c_trydan_sensor_maxintensity"
-    _attr_device_class = SensorDeviceClass.CURRENT
-    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("max_intensity")
-        return None
-
-
-class V2CMinIntensitySensor(V2CBaseSensor):
-    """Sensor for min intensity."""
-
-    _attr_name = "V2C Min Intensity"
-    _attr_unique_id = "v2c_trydan_sensor_minintensity"
-    _attr_device_class = SensorDeviceClass.CURRENT
-    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("min_intensity")
-        return None
-
-
-class V2CPausedSensor(V2CBaseSensor):
-    """Sensor for paused state."""
-
-    _attr_name = "V2C Paused"
-    _attr_unique_id = "v2c_trydan_sensor_paused"
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("paused")
-        return None
-
-
-class V2CPauseDynamicSensor(V2CBaseSensor):
-    """Sensor for pause dynamic state."""
-
-    _attr_name = "V2C Pause Dynamic"
-    _attr_unique_id = "v2c_trydan_sensor_pausedynamic"
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("pause_dynamic")
-        return None
-
-
-class V2CSlaveErrorSensor(V2CBaseSensor):
-    """Sensor for slave error state."""
-
-    _attr_name = "V2C Slave Error"
-    _attr_unique_id = "v2c_trydan_sensor_slaveerror"
-
-    @property
-    def native_value(self) -> str | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            error_num = self.coordinator.data.get("slave_error")
-            if error_num is not None:
-                return SLAVE_ERROR_NAMES.get(error_num, f"Unknown ({error_num})")
-        return None
-
-
-class V2CTimerSensor(V2CBaseSensor):
-    """Sensor for timer state."""
-
-    _attr_name = "V2C Timer"
-    _attr_unique_id = "v2c_trydan_sensor_timer"
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the state of the sensor."""
-        if self.coordinator.data:
-            return self.coordinator.data.get("timer")
-        return None
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return additional state attributes."""
+        if not self.coordinator.data:
+            return None
+            
+        data = self.coordinator.data
+        attributes = {}
+        
+        if self._type == "charge_state":
+            attributes.update({
+                "last_updated": data.get("last_updated"),
+                "raw_state": data.get("charge_state"),
+                "connection_time": data.get("connection_time"),
+            })
+        elif self._type == "charge_power":
+            attributes.update({
+                "max_power": 7400,  # V2C Trydan max power (32A * 230V)
+                "min_power": 1380,  # 6A * 230V
+                "current_intensity": data.get("intensity", 0),
+                "voltage": data.get("voltage", 230),
+                "efficiency": "95%",  # Typical EV charger efficiency
+            })
+        elif self._type in ["charge_energy", "session_energy", "total_energy"]:
+            # Additional energy-related attributes
+            energy_wh = data.get(self._type, 0)
+            attributes.update({
+                "energy_wh": energy_wh,
+                "cost_estimate": round(energy_wh * 0.15 / 1000, 2),  # Rough cost estimate
+            })
+        elif self._type == "charge_current":
+            attributes.update({
+                "max_current": data.get("max_intensity", 32),
+                "min_current": data.get("min_intensity", 6),
+                "current_limit": data.get("intensity", 6),
+            })
+        elif self._type == "wifi_signal":
+            signal = data.get("wifi_signal", -50)
+            if signal > -30:
+                quality = "Excellent"
+            elif signal > -50:
+                quality = "Good"
+            elif signal > -70:
+                quality = "Fair"
+            else:
+                quality = "Poor"
+            attributes.update({
+                "signal_quality": quality,
+                "signal_bars": min(4, max(0, int((signal + 100) / 12.5))),
+            })
+        
+        return attributes if attributes else None

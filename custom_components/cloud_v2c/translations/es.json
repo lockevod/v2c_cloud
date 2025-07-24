@@ -1,0 +1,166 @@
+{
+  "config": {
+    "title": "V2C Cloud",
+    "description": "Integra tu cargador V2C Trydan con Home Assistant",
+    "step": {
+      "user": {
+        "title": "Configuración de V2C Cloud",
+        "description": "Introduce las credenciales de tu API de V2C Cloud para conectar tu cargador Trydan",
+        "data": {
+          "api_token": "Token de API",
+          "device_id": "ID del Dispositivo",
+          "scan_interval": "Intervalo de Actualización (segundos)",
+          "name": "Nombre de la Integración"
+        },
+        "data_description": {
+          "api_token": "Tu token de la API de V2C Cloud obtenido desde https://v2c.cloud → Configuración → Claves API",
+          "device_id": "El ID de tu cargador Trydan (encontrado en el panel de V2C Cloud)",
+          "scan_interval": "Frecuencia de actualización de datos de sensores (recomendado: 30-60 segundos)",
+          "name": "Nombre personalizado para esta instancia de integración"
+        }
+      },
+      "reauth": {
+        "title": "Re-autenticar V2C Cloud",
+        "description": "Tu token de API ha expirado o no es válido. Por favor, introduce un nuevo token.",
+        "data": {
+          "api_token": "Nuevo Token de API"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Error al conectar con la API de V2C Cloud. Por favor, verifica tu conexión a internet.",
+      "invalid_auth": "Token de API inválido. Por favor, verifica tu token en la configuración de V2C Cloud.",
+      "invalid_device": "ID de dispositivo no encontrado en tu cuenta de V2C Cloud. Por favor, verifica el ID del dispositivo.",
+      "timeout": "Tiempo de conexión agotado. El servicio de V2C Cloud puede estar temporalmente no disponible.",
+      "unknown": "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.",
+      "rate_limit": "Límite de velocidad de API excedido. Por favor, espera un momento antes de intentar de nuevo.",
+      "device_offline": "Tu dispositivo Trydan parece estar desconectado. Por favor, verifica su conexión."
+    },
+    "abort": {
+      "already_configured": "Este dispositivo V2C ya está configurado en Home Assistant.",
+      "reauth_successful": "Re-autenticación completada exitosamente.",
+      "single_instance_allowed": "Solo se permite una instancia de integración V2C Cloud por Home Assistant."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones Avanzadas de V2C Cloud",
+        "description": "Configura ajustes avanzados para tu integración de V2C Cloud",
+        "data": {
+          "scan_interval": "Intervalo de Actualización (segundos)",
+          "enable_debug": "Activar Registro de Depuración",
+          "power_detection_threshold": "Umbral de Detección de Potencia (W)",
+          "connection_timeout": "Tiempo de Espera de Conexión (segundos)"
+        },
+        "data_description": {
+          "scan_interval": "Frecuencia de consulta a la API de V2C Cloud para actualizaciones",
+          "enable_debug": "Activar registro detallado para resolución de problemas (puede afectar el rendimiento)",
+          "power_detection_threshold": "Potencia mínima para considerar la carga como activa",
+          "connection_timeout": "Tiempo máximo de espera para respuestas de API"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "charge_state": {
+        "name": "Estado de Carga",
+        "state": {
+          "disconnected": "Cable Desconectado",
+          "connected_not_charging": "Conectado (Sin Cargar)",
+          "connected_charging": "Conectado (Cargando)",
+          "error": "Error",
+          "paused": "Pausado",
+          "unknown": "Desconocido"
+        }
+      },
+      "charge_power": {
+        "name": "Potencia de Carga"
+      },
+      "charge_energy": {  
+        "name": "Energía de Carga"
+      },
+      "charge_current": {
+        "name": "Corriente de Carga"
+      },
+      "voltage": {
+        "name": "Voltaje"
+      },
+      "temperature": {
+        "name": "Temperatura"
+      },
+      "session_energy": {
+        "name": "Energía de la Sesión"
+      },
+      "session_time": {
+        "name": "Duración de la Sesión"
+      },
+      "total_energy": {
+        "name": "Energía Total"
+      },
+      "wifi_signal": {
+        "name": "Intensidad de Señal WiFi"
+      },
+      "firmware_version": {
+        "name": "Versión de Firmware"
+      }
+    },
+    "switch": {
+      "dynamic_power": {
+        "name": "Control de Potencia Dinámica"
+      },
+      "paused": {
+        "name": "Carga Pausada"
+      },
+      "locked": {
+        "name": "Cargador Bloqueado"
+      }
+    },
+    "number": {
+      "intensity": {
+        "name": "Corriente de Carga"
+      },
+      "max_intensity": {
+        "name": "Corriente Máxima"
+      },
+      "min_intensity": {
+        "name": "Corriente Mínima"
+      }
+    },
+    "button": {
+      "start_charge": {
+        "name": "Iniciar Carga"
+      },
+      "stop_charge": {
+        "name": "Detener Carga"
+      },
+      "restart_device": {
+        "name": "Reiniciar Dispositivo"
+      },
+      "reset_session": {
+        "name": "Reiniciar Sesión"
+      }
+    }
+  },
+  "services": {
+    "set_charging_current": {
+      "name": "Establecer Corriente de Carga",
+      "description": "Establece la corriente de carga para el cargador V2C Trydan",
+      "fields": {
+        "current": {
+          "name": "Corriente",
+          "description": "Corriente de carga en Amperios (6-32A)"
+        }
+      }
+    },
+    "start_charging": {
+      "name": "Iniciar Carga",
+      "description": "Inicia la carga del vehículo eléctrico conectado"
+    },
+    "stop_charging": {
+      "name": "Detener Carga",
+      "description": "Detiene la carga del vehículo eléctrico conectado"
+    }
+  }
+}

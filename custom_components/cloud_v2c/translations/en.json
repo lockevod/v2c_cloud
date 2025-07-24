@@ -1,0 +1,166 @@
+{
+  "config": {
+    "title": "V2C Cloud",
+    "description": "Integrate your V2C Trydan charger with Home Assistant",
+    "step": {
+      "user": {
+        "title": "V2C Cloud Configuration",
+        "description": "Enter your V2C Cloud API credentials to connect your Trydan charger",
+        "data": {
+          "api_token": "API Token",
+          "device_id": "Device ID",
+          "scan_interval": "Update Interval (seconds)",
+          "name": "Integration Name"
+        },
+        "data_description": {
+          "api_token": "Your V2C Cloud API token obtained from https://v2c.cloud → Settings → API Keys",
+          "device_id": "Your Trydan charger device ID (found in V2C Cloud dashboard)",
+          "scan_interval": "How often to update sensor data (recommended: 30-60 seconds)",
+          "name": "Custom name for this integration instance"
+        }
+      },
+      "reauth": {
+        "title": "Re-authenticate V2C Cloud",
+        "description": "Your API token has expired or is invalid. Please enter a new token.",
+        "data": {
+          "api_token": "New API Token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to V2C Cloud API. Please check your internet connection.",
+      "invalid_auth": "Invalid API token. Please verify your token from V2C Cloud settings.",
+      "invalid_device": "Device ID not found in your V2C Cloud account. Please verify the device ID.",
+      "timeout": "Connection timeout. The V2C Cloud service may be temporarily unavailable.",
+      "unknown": "An unexpected error occurred. Please try again.",
+      "rate_limit": "API rate limit exceeded. Please wait a moment before trying again.",
+      "device_offline": "Your Trydan device appears to be offline. Please check its connection."
+    },
+    "abort": {
+      "already_configured": "This V2C device is already configured in Home Assistant.",
+      "reauth_successful": "Re-authentication completed successfully.",
+      "single_instance_allowed": "Only one V2C Cloud integration instance is allowed per Home Assistant."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "V2C Cloud Advanced Options",
+        "description": "Configure advanced settings for your V2C Cloud integration",
+        "data": {
+          "scan_interval": "Update Interval (seconds)",
+          "enable_debug": "Enable Debug Logging",
+          "power_detection_threshold": "Power Detection Threshold (W)",
+          "connection_timeout": "Connection Timeout (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll the V2C Cloud API for updates",
+          "enable_debug": "Enable detailed logging for troubleshooting (may impact performance)",
+          "power_detection_threshold": "Minimum power to consider charging as active",
+          "connection_timeout": "Maximum time to wait for API responses"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "charge_state": {
+        "name": "Charge State",
+        "state": {
+          "disconnected": "Cable Disconnected",
+          "connected_not_charging": "Connected (Not Charging)",
+          "connected_charging": "Connected (Charging)",
+          "error": "Error",
+          "paused": "Paused",
+          "unknown": "Unknown"
+        }
+      },
+      "charge_power": {
+        "name": "Charge Power"
+      },
+      "charge_energy": {
+        "name": "Charge Energy"
+      },
+      "charge_current": {
+        "name": "Charge Current"
+      },
+      "voltage": {
+        "name": "Voltage"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "session_energy": {
+        "name": "Session Energy"
+      },
+      "session_time": {
+        "name": "Session Duration"
+      },
+      "total_energy": {
+        "name": "Total Energy"
+      },
+      "wifi_signal": {
+        "name": "WiFi Signal Strength"
+      },
+      "firmware_version": {
+        "name": "Firmware Version"
+      }
+    },
+    "switch": {
+      "dynamic_power": {
+        "name": "Dynamic Power Control"
+      },
+      "paused": {
+        "name": "Charging Paused"
+      },
+      "locked": {
+        "name": "Charger Locked"
+      }
+    },
+    "number": {
+      "intensity": {
+        "name": "Charging Current"
+      },
+      "max_intensity": {
+        "name": "Maximum Current"
+      },
+      "min_intensity": {
+        "name": "Minimum Current"
+      }
+    },
+    "button": {
+      "start_charge": {
+        "name": "Start Charging"
+      },
+      "stop_charge": {
+        "name": "Stop Charging"
+      },
+      "restart_device": {
+        "name": "Restart Device"
+      },
+      "reset_session": {
+        "name": "Reset Session"
+      }
+    }
+  },
+  "services": {
+    "set_charging_current": {
+      "name": "Set Charging Current",
+      "description": "Set the charging current for the V2C Trydan charger",
+      "fields": {
+        "current": {
+          "name": "Current",
+          "description": "Charging current in Amperes (6-32A)"
+        }
+      }
+    },
+    "start_charging": {
+      "name": "Start Charging",
+      "description": "Start charging the connected electric vehicle"
+    },
+    "stop_charging": {
+      "name": "Stop Charging", 
+      "description": "Stop charging the connected electric vehicle"
+    }
+  }
+}

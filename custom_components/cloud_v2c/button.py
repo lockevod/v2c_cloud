@@ -1,15 +1,16 @@
-"""Support for V2C Cloud button entities."""
+"""V2C Cloud button platform."""
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, BUTTON_TYPES
+from .entity import V2CCloudEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,66 +20,108 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up V2C Cloud button entities based on a config entry."""
+    """Set up V2C Cloud button entities."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    
+    entities = []
+    for button_type, button_info in BUTTON_TYPES.items():
+        entities.append(V2CCloudButton(coordinator, button_type, button_info))
+    
+    async_add_entities(entities)
 
-    buttons = [
-        V2CStartChargeButton(coordinator, config_entry),
-        V2CStopChargeButton(coordinator, config_entry),
-    ]
 
-    async_add_entities(buttons)
+class V2CCloudButton(V2CCloudEntity, ButtonEntity):
+    """V2C Cloud button entity."""
 
+    def __init__(self, coordinator, button_type: str, button_info: dict[str, Any]):
+        """Initialize the button."""
+        super().__init__(coordinator, button_type)
+        self._button_info = button_info
+        self._attr_icon = button_info.get("icon")
+        
+        # Use translation key for name
+        self._attr_translation_key = button_info.get("translation_key")
+        self._attr_has_entity_name = True
 
-class V2CBaseButton(CoordinatorEntity, ButtonEntity):
-    """Base class for V2C button entities."""
-
-    def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
-        """Initialize the button entity."""
-        super().__init__(coordinator)
-        self._config_entry = config_entry
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, config_entry.data["device_id"])},
-            "name": "V2C Trydan",
-            "manufacturer": "V2C",
-            "model": "Trydan",
-        }
+    async def async_press(self) -> None:
+        """Handle the button press."""
+        try:
+            success = False
+            action_description = ""
+            
+            if self._type == "start_charge":
+                success = await self.coordinator.api.start_charging()
+                action_description = "start charging"
+            elif self._type == "stop_charge":
+                success = await self.coordinator.api.stop_charging()
+                action_description = "stop charging"
+            elif self._type == "restart_device":
+                success = await self.coordinator.api.restart_device()
+                action_description = "restart device"
+            elif self._type == "reset_session":
+                success = await self.coordinator.api.reset_session()
+                action_description = "reset session"
+            
+            if success:
+                _LOGGER.info("Successfully executed: %s", action_description)
+                # Request refresh after action
+                await self.coordinator.async_request_refresh()
+            else:
+                _LOGGER.error("Failed to execute: %s", action_description)
+                
+        except Exception as err:
+            _LOGGER.error("Error pressing button %s: %s", self._type, err)
+            raise
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return additional state attributes."""
+        if not self.coordinator.data:
+            return None
+            
+        data = self.coordinator.data
+        attributes = {}
+        
+        if self._type == "start_charge":
+            charge_state = data.get("charge_state", 99)
+            attributes.update({
+                "description": "Start EV charging session",
+                "requires_cable_connected": True,
+                "current_state": charge_state,
+                "can_start": charge_state in [1, 4],  # connected_not_charging or paused
+                "emhass_controlled": True,
+            })
+        elif self._type == "stop_charge":
+            charge_state = data.get("charge_state", 99)
+            attributes.update({
+                "description": "Stop current EV charging session",
+                "current_state": charge_state,
+                "can_stop": charge_state == 2,  # connected_charging
+                "preserves_connection": True,
+                "emhass_controlled": True,
+            })
+        elif self._type == "restart_device":
+            attributes.update({
+                "description": "Restart the V2C Trydan device",
+                "warning": "Will temporarily interrupt charging if active",
+                "use_case": "troubleshooting_connectivity_issues",
+                "restart_duration": "30-60 seconds",
+            })
+        elif self._type == "reset_session":
+            session_energy = data.get("session_energy", 0)
+            session_time = data.get("session_time", 0)
+            attributes.update({
+                "description": "Reset current charging session counters",
+                "current_session_energy": f"{session_energy/1000:.2f} kWh",
+                "current_session_time": f"{session_time} minutes",
+                "resets_counters": ["session_energy", "session_time"],
+            })
+        
+        return attributes if attributes else None
 
-
-class V2CStartChargeButton(V2CBaseButton):
-    """Button entity for starting charge."""
-
-    _attr_name = "V2C Start Charge"
-    _attr_unique_id = "v2c_start_charge_button"
-    _attr_icon = "mdi:play"
-
-    async def async_press(self) -> None:
-        """Handle the button press."""
-        success = await self.coordinator.api.start_charge()
-        if success:
-            await self.coordinator.async_request_refresh()
-            _LOGGER.info("Charge started successfully")
-        else:
-            _LOGGER.error("Failed to start charge")
-
-
-class V2CStopChargeButton(V2CBaseButton):
-    """Button entity for stopping charge."""
-
-    _attr_name = "V2C Stop Charge"
-    _attr_unique_id = "v2c_stop_charge_button"
-    _attr_icon = "mdi:stop"
-
-    async def async_press(self) -> None:
-        """Handle the button press."""
-        success = await self.coordinator.api.stop_charge()
-        if success:
-            await self.coordinator.async_request_refresh()
-            _LOGGER.info("Charge stopped successfully")
-        else:
-            _LOGGER.error("Failed to stop charge")
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Return if the entity should be enabled when first added to the entity registry."""
+        # Enable start/stop by default as they're commonly used
+        # Disable restart/reset by default as they're more administrative
+        return self._type in ["start_charge", "stop_charge"]
