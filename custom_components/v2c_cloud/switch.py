@@ -43,6 +43,30 @@ class V2CCloudSwitch(V2CCloudEntity, SwitchEntity):
         self._attr_translation_key = switch_info.get("translation_key")
         self._attr_has_entity_name = True
 
+    def _safe_bool(self, value: Any, default: bool = False) -> bool:
+        """Safely convert any value to bool."""
+        try:
+            if value is None:
+                return default
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                return value.lower() in ("1", "true", "yes", "on")
+            if isinstance(value, (int, float)):
+                return value != 0
+            return default
+        except (ValueError, TypeError):
+            return default
+
+    def _safe_int(self, value: Any, default: int = 0) -> int:
+        """Safely convert any value to int."""
+        try:
+            if value is None:
+                return default
+            return int(float(value))
+        except (ValueError, TypeError):
+            return default
+
     @property
     def is_on(self) -> bool | None:
         """Return True if the switch is on."""
@@ -52,11 +76,11 @@ class V2CCloudSwitch(V2CCloudEntity, SwitchEntity):
         data = self.coordinator.data
         
         if self._type == "dynamic":
-            return data.get("dynamic_power", False)
+            return self._safe_bool(data.get("dynamic_power", False))
         elif self._type == "paused":
-            return data.get("paused", False)
+            return self._safe_bool(data.get("paused", False))
         elif self._type == "locked":
-            return data.get("locked", False)
+            return self._safe_bool(data.get("locked", False))
         
         return None
 
@@ -114,10 +138,12 @@ class V2CCloudSwitch(V2CCloudEntity, SwitchEntity):
                 "compatible_with_emhass": True,
             })
         elif self._type == "paused":
+            # FIXED: Safe conversion for charge_state
+            charge_state = self._safe_int(data.get("charge_state", 99))
             attributes.update({
                 "description": "Temporarily pauses charging without disconnecting",
-                "charge_state": data.get("charge_state", "unknown"),
-                "can_resume": data.get("charge_state") in [1, 4],  # connected_not_charging or paused
+                "charge_state": charge_state,
+                "can_resume": charge_state in [1, 4],  # connected_not_charging or paused
             })
         elif self._type == "locked":
             attributes.update({

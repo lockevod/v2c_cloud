@@ -13,7 +13,8 @@ DEFAULT_SCAN_INTERVAL = 30
 DEFAULT_TIMEOUT = 10
 
 # API Configuration - Kong Gateway endpoints
-API_BASE_URL = "https://v2c.cloud/kong/v2c_service"
+# API_BASE_URL = "https://v2c.cloud/kong/v2c_service"
+API_BASE_URL = "https://v2c.cloud/api/v1"
 API_TIMEOUT = 10
 API_RETRIES = 3
 

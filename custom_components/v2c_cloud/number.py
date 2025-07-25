@@ -48,6 +48,24 @@ class V2CCloudNumber(V2CCloudEntity, NumberEntity):
         self._attr_translation_key = number_info.get("translation_key")
         self._attr_has_entity_name = True
 
+    def _safe_float(self, value: Any, default: float = 0.0) -> float:
+        """Safely convert any value to float."""
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def _safe_int(self, value: Any, default: int = 0) -> int:
+        """Safely convert any value to int."""
+        try:
+            if value is None:
+                return default
+            return int(float(value))
+        except (ValueError, TypeError):
+            return default
+
     @property
     def native_value(self) -> float | None:
         """Return the current value."""
@@ -57,11 +75,11 @@ class V2CCloudNumber(V2CCloudEntity, NumberEntity):
         data = self.coordinator.data
         
         if self._type == "intensity":
-            return float(data.get("intensity", 6))
+            return self._safe_float(data.get("intensity", 6))
         elif self._type == "max_intensity":
-            return float(data.get("max_intensity", 32))
+            return self._safe_float(data.get("max_intensity", 32))
         elif self._type == "min_intensity":
-            return float(data.get("min_intensity", 6))
+            return self._safe_float(data.get("min_intensity", 6))
         
         return None
 
@@ -99,13 +117,13 @@ class V2CCloudNumber(V2CCloudEntity, NumberEntity):
         attributes = {}
         
         if self._type == "intensity":
-            # Calculate power based on intensity (single phase)
-            current_intensity = data.get("intensity", 6)
-            voltage = data.get("voltage", 230)
+            # Calculate power based on intensity (single phase) - FIXED string conversion
+            current_intensity = self._safe_float(data.get("intensity", 6))
+            voltage = self._safe_float(data.get("voltage", 230))
             calculated_power = current_intensity * voltage
             
             attributes.update({
-                "calculated_power_w": calculated_power,
+                "calculated_power_w": round(calculated_power, 0),
                 "calculated_power_kw": round(calculated_power / 1000, 2),
                 "voltage": voltage,
                 "power_factor": "1.0",  # Assume unity power factor for EV charging

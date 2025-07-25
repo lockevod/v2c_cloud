@@ -43,6 +43,24 @@ class V2CCloudButton(V2CCloudEntity, ButtonEntity):
         self._attr_translation_key = button_info.get("translation_key")
         self._attr_has_entity_name = True
 
+    def _safe_float(self, value: Any, default: float = 0.0) -> float:
+        """Safely convert any value to float."""
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def _safe_int(self, value: Any, default: int = 0) -> int:
+        """Safely convert any value to int."""
+        try:
+            if value is None:
+                return default
+            return int(float(value))
+        except (ValueError, TypeError):
+            return default
+
     async def async_press(self) -> None:
         """Handle the button press."""
         try:
@@ -83,7 +101,8 @@ class V2CCloudButton(V2CCloudEntity, ButtonEntity):
         attributes = {}
         
         if self._type == "start_charge":
-            charge_state = data.get("charge_state", 99)
+            # FIXED: Safe conversion for charge_state
+            charge_state = self._safe_int(data.get("charge_state", 99))
             attributes.update({
                 "description": "Start EV charging session",
                 "requires_cable_connected": True,
@@ -92,7 +111,8 @@ class V2CCloudButton(V2CCloudEntity, ButtonEntity):
                 "emhass_controlled": True,
             })
         elif self._type == "stop_charge":
-            charge_state = data.get("charge_state", 99)
+            # FIXED: Safe conversion for charge_state
+            charge_state = self._safe_int(data.get("charge_state", 99))
             attributes.update({
                 "description": "Stop current EV charging session",
                 "current_state": charge_state,
@@ -108,8 +128,9 @@ class V2CCloudButton(V2CCloudEntity, ButtonEntity):
                 "restart_duration": "30-60 seconds",
             })
         elif self._type == "reset_session":
-            session_energy = data.get("session_energy", 0)
-            session_time = data.get("session_time", 0)
+            # FIXED: Safe conversion for session data
+            session_energy = self._safe_float(data.get("session_energy", 0))
+            session_time = self._safe_float(data.get("session_time", 0))
             attributes.update({
                 "description": "Reset current charging session counters",
                 "current_session_energy": f"{session_energy/1000:.2f} kWh",
